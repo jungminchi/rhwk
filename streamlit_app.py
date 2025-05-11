@@ -5,17 +5,26 @@ st.set_page_config(page_title="자동차 카드 배틀", layout="wide")
 
 def calculate_performance(car, terrain, obstacle):
     score = 0
-    score += (300 - car["acceleration"] * 50)  
+    score += (300 - car["acceleration"] * 50)
     score += car["top_speed"]
     score += car["handling"]
 
-    if terrain in car["tires"]:
-        score += 50  
+    if terrain in car.get("tires", ""):
+        score += 50
 
-    if obstacle == "낮은 지상고" and car["ride_height"] == "Low":
-        score -= 40  
+    if obstacle == "낮은 지상고" and car.get("ride_height", "") == "Low":
+        score -= 40
 
     return score
+
+def show_card(car, title):
+    st.subheader(title)
+    st.image(car.get("image", "https://via.placeholder.com/300"), width=300)
+    st.write(f"**차량명:** {car['name']}")
+    st.write(f"**등급:** {car.get('rarity', 'Unknown')}")
+    st.metric("0-100km/h 가속 (s)", car["acceleration"])
+    st.metric("최고 속도 (km/h)", car["top_speed"])
+    st.metric("핸들링 점수", car["handling"])
 
 def show_card(car, title):
     st.subheader(title)
@@ -30,7 +39,7 @@ def show_card(car, title):
     st.subheader(title)
     st.image(car.get("image", "https://via.placeholder.com/300"), width=300)
     st.write(f"**차량명:** {car['name']}")
-    st.write(f"**등급:** {car['rarity']}")
+    st.write(f"**등급:** {car.get('rarity', 'Unknown')}")
     st.metric("0-100km/h 가속 (s)", car["acceleration"])
     st.metric("최고 속도 (km/h)", car["top_speed"])
     st.metric("핸들링 점수", car["handling"])
@@ -98,51 +107,21 @@ car_data = {
 }
 
 
+for brand in car_data.values():
+    for model_name, specs in brand.items():
+        specs["name"] = model_name
+        specs["top_speed"] = specs.pop("Top Speed")
+        specs["acceleration"] = specs.pop("Acceleration")
+        specs["handling"] = specs.pop("Handling")
+
 def calculate_performance_score(car):
     weight_top_speed = 0.3
     weight_acceleration = 0.3
     weight_handling = 0.4
-    score = (car["Top Speed"] * weight_top_speed) + (car["Acceleration"] * weight_acceleration) + (car["Handling"] * weight_handling)
+    score = (car["top_speed"] * weight_top_speed) + (car["acceleration"] * weight_acceleration) + (car["handling"] * weight_handling)
     return score
 
-brand_options = list(car_data.keys())
-selected_brand = st.selectbox("브랜드를 선택하세요", brand_options)
-
-model_options = list(car_data[selected_brand].keys())
-selected_model = st.selectbox("모델을 선택하세요", model_options)
-
-selected_car = car_data[selected_brand][selected_model]
-
-performance_score = calculate_performance_score(selected_car)
-
-st.write(f"선택한 차: {selected_model} ({selected_brand})")
-st.write(f"최고 속도: {selected_car['Top Speed']} km/h")
-st.write(f"가속도 (0-100 km/h): {selected_car['Acceleration']} 초")
-st.write(f"핸들링: {selected_car['Handling']}")
-st.write(f"구동 방식: {selected_car['Drive Type']}")
-st.write(f"차 종류: {selected_car['Type']}")
-st.write(f"희귀도: {selected_car['rarity']}")
-st.write(f"성능 점수: {performance_score:.2f}")
-
-selected_label = st.selectbox("차량을 선택하세요", 
-                              [f"{car['name']} [{car['rarity']}]" for brand in cars_data.values() for car in brand.values()])
-
-print(f"selected_label: {selected_label}")
-
-selected_car = next(
-    (car for brand in cars_data.values() for car in brand.values() if f"{car['name']} [{car['rarity']}]" == selected_label),
-    None
-)
-
-if selected_car:
-    print(f"선택된 차: {selected_car}")
-else:
-    print("일치하는 차량이 없습니다.")
-
-if selected_car:
-    print(f"선택된 차: {selected_car}")
-else:
-    print("일치하는 차량이 없습니다.")
+st.title("🚗 자동차 카드 배틀 게임")
 
 if "unlocked_cars" not in st.session_state:
     st.session_state.unlocked_cars = []
@@ -150,28 +129,23 @@ if "unlocked_cars" not in st.session_state:
 if "pack_opened" not in st.session_state:
     st.session_state.pack_opened = False
 
-st.title("🚗 자동차 카드 배틀 게임")
-
 if not st.session_state.pack_opened:
     st.header("🎁 카드팩을 열어보세요!")
     if st.button("🔓 카드팩 열기 (5개 무작위 차량)"):
-        sample_size = min(5, len(cars_data))
-        st.session_state.unlocked_cars = random.sample(list(cars_data.values()), sample_size)
+        all_cars = [car for brand in car_data.values() for car in brand.values()]
+        st.session_state.unlocked_cars = random.sample(all_cars, min(5, len(all_cars)))
         st.session_state.pack_opened = True
         st.rerun()
 
 if st.session_state.pack_opened:
     st.sidebar.header("🧩 당신의 차량 선택")
-    unlocked = st.session_state.unlocked_cars
-    selected_car = next(
-        car for brand in unlocked for car in brand.values() 
-        if f"{car['name']} [{car['rarity']}]" == selected_label
-    )
+    car_names = [f"{car['name']} [{car.get('rarity', 'Unknown')}]" for car in st.session_state.unlocked_cars]
     selected_label = st.sidebar.selectbox("당신의 차량을 선택하세요", car_names)
 
-    elected_car = next(car for brand in unlocked for car in brand.values() if f"{car['name']} [{car['rarity']}]" == selected_label)
+    selected_car = next((car for car in st.session_state.unlocked_cars if f"{car['name']} [{car.get('rarity', 'Unknown')}]" == selected_label), None)
 
-    available_opponent_cars = [car for brand in cars_data.values() for car in brand.values() if car != selected_car]
+    all_cars = [car for brand in car_data.values() for car in brand.values()]
+    available_opponent_cars = [car for car in all_cars if car != selected_car]
     opponent_car = random.choice(available_opponent_cars)
 
     terrain = random.choice(["아스팔트", "흙길", "모래", "풀밭", "악천후"])
