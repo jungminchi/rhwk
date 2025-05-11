@@ -1,7 +1,7 @@
 import streamlit as st
 import random
 
-st.set_page_config(page_title="자동차 카드 배틀", layout="wide")
+st.set_page_config(page_title="songnaego cjm의 자동차 배틀", layout="wide")
 
 def calculate_performance(car, terrain, obstacle):
     score = 0
@@ -138,9 +138,9 @@ if not st.session_state.pack_opened:
         st.rerun()
 
 if st.session_state.pack_opened:
-    st.sidebar.header("🧩 당신의 차량 선택")
+    st.sidebar.header("🧩차량 선택")
     car_names = [f"{car['name']} [{car.get('rarity', 'Unknown')}]" for car in st.session_state.unlocked_cars]
-    selected_label = st.sidebar.selectbox("당신의 차량을 선택하세요", car_names)
+    selected_label = st.sidebar.selectbox("차량을 선택하세요", car_names)
 
     selected_car = next((car for car in st.session_state.unlocked_cars if f"{car['name']} [{car.get('rarity', 'Unknown')}]" == selected_label), None)
 
