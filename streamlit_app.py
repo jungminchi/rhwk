@@ -138,12 +138,14 @@ with tab2:
     if not st.session_state.my_collection:
         st.info("아직 카드가 없습니다. 카드팩을 열어보세요!")
     else:
-        for idx, car in enumerate(st.session_state.my_collection):
-            show_card(car, f"{idx+1}. {car['name']}")
-            if st.button(f"{car['name']} 차량 판매", key=f"sell_{car['name']}_{id(car)}"):
+        for idx, car in enumerate(st.session_state.my_collection[:]):  # 복사본으로 반복
+            show_card(car, f"{idx+1}. {car.get('name', 'Unknown')}")
+            if st.button(f"{car.get('name', 'Unknown')} 차량 판매", key=f"sell_{idx}"):
+                rarity = car.get("rarity", "Common")
+                st.session_state.coins += car_sell_prices.get(rarity, 100)
+                st.session_state.my_collection.remove(car)
+                st.rerun()
 
-                sell_car(car)
-                st.success(f"{car['name']} 차량을 판매하고 {car_sell_prices.get(car.get('rarity', 'Common'), 100)} 코인을 얻었습니다!")
 
 with tab3:
     st.header("⚔️ race")
