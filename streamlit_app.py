@@ -3,6 +3,7 @@ import random
 import time
 from car_data import car_data
 
+
 def show_card(car, title):
     st.subheader(title)
     st.write(f"**차량명:** {car['name']}")
@@ -10,36 +11,99 @@ def show_card(car, title):
     st.metric("최고 속도 (km/h)", car.get("Top Speed", "-"))
     st.metric("0-100km/h 가속 (s)", car.get("Acceleration", "-"))
     st.metric("핸들링 점수", car.get("Handling", "-"))
-    st.write(f"**구동방식:** {car.get('Drive Type', '-')} | **차량 종류:** {car.get('Type', '-')} | **타이어 유형:** {car.get('Tire Type', 'Standard')}")
+    st.write(f"**구동방식:** {car.get('Drive Type', '-')} | **차량 종류:** {car.get('Type', '-')} | **타이어 유형:** {car.get('Tires', '')}")  
+
+tire_factors = {
+    "Standard": {"자갈": 1.0, "모래": 1.0, "눈": 1.0, "얼음": 1.0, "도로": 1.0},
+    "Performance": {"자갈": 0.4, "모래": 0.5, "눈": 0.1, "얼음": 0.2, "도로": 1.3},
+    "Offroad": {"자갈": 1.5, "모래": 1.5, "눈": 1.1, "얼음": 1.2, "도로": 0.8},
+    "All-Terrain": {"자갈": 1.2, "모래": 1.2, "눈": 1.3, "얼음": 1.3, "도로": 1.0},
+}
 
 def calculate_performance(car, terrain, obstacle):
     score = 0
     performance_details = {}
 
-    acceleration = car.get("Acceleration", 0)
+    acceleration = car.get("Acceleration")
     if isinstance(acceleration, (int, float)):
-        score += (300 - acceleration * 50)
-        performance_details["가속"] = f"{acceleration}s로 {300 - acceleration * 50}점 추가"
+        acc_score = (300 - acceleration * 50)
+        score += acc_score
+        performance_details["가속"] = f"{acceleration}s → +{acc_score:.1f}점"
     else:
         performance_details["가속"] = "정보 없음"
 
-    score += car.get("Top Speed", 0)
-    performance_details["최고 속도"] = f"{car.get('Top Speed', 0)}km/h로 {car.get('Top Speed', 0)}점 추가"
+    top_speed = car.get("Top Speed", 0)
+    score += top_speed
+    performance_details["최고 속도"] = f"{top_speed}km/h → +{top_speed}점"
 
-    score += car.get("Handling", 0)
-    performance_details["핸들링"] = f"{car.get('Handling', 0)}으로 {car.get('Handling', 0)}점 추가"
+    handling = car.get("Handling", 0)
+    score += handling
+    performance_details["핸들링"] = f"{handling} → +{handling}점"
 
     tire_type = car.get("Tire Type", "Standard")
     terrain_factor = tire_factors.get(tire_type, {}).get(terrain, 1.0)
-    score *= terrain_factor  
-    performance_details["타이어 보정"] = f"타이어 유형 ({tire_type})에 따른 지형 보정값: {terrain_factor}배"
+    tire_adjustment = (terrain_factor - 1.0) * 100
+    score += tire_adjustment
+    performance_details["타이어 보정"] = f"{tire_type} 타이어 × 지형({terrain}) 보정치 {terrain_factor:.2f} → {tire_adjustment:+.1f}점"
 
     if obstacle == "낮은 지상고" and car.get("ride_height", "") == "Low":
-        score -= 40
-        performance_details["장애물 적합성"] = f"장애물 ({obstacle})에 적합하지 않아 -40점 차감"
+        score -= 120
+        performance_details["장애물 적합성"] = f"지상고 낮음 → -120점"
 
-    score += random.uniform(0.1, 0.5)  
-    return score, performance_details
+    drive_type = car.get("Drive Type", "FWD")
+    if drive_type == "AWD":
+        if terrain == "자갈":
+            score += 30
+            performance_details["구동 보정"] = "AWD → 자갈에서 +30점"
+        elif terrain == "모래":
+            score += 20
+            performance_details["구동 보정"] = "AWD → 모래에서 +20점"
+        elif terrain == "눈":
+            score += 40
+            performance_details["구동 보정"] = "AWD → 눈에서 +40점"
+        elif terrain == "얼음":
+            score += 50
+            performance_details["구동 보정"] = "AWD → 얼음에서 +50점"
+        else:
+            performance_details["구동 보정"] = "AWD → 일반 도로에서 성능 변화 없음"
+
+    elif drive_type == "RWD":
+        if terrain == "자갈":
+            score -= 30
+            performance_details["구동 보정"] = "RWD → 자갈에서 -30점"
+        elif terrain == "모래":
+            score -= 20
+            performance_details["구동 보정"] = "RWD → 모래에서 -20점"
+        elif terrain == "눈":
+            score -= 40
+            performance_details["구동 보정"] = "RWD → 눈에서 -40점"
+        elif terrain == "얼음":
+            score -= 50
+            performance_details["구동 보정"] = "RWD → 얼음에서 -50점"
+        else:
+            performance_details["구동 보정"] = "RWD → 일반 도로에서 성능 변화 없음"
+
+    elif drive_type == "FWD":
+        if terrain == "자갈":
+            score -= 30
+            performance_details["구동 보정"] = "FWD → 자갈에서 -30점"
+        elif terrain == "모래":
+            score -= 20
+            performance_details["구동 보정"] = "FWD → 모래에서 -20점"
+        elif terrain == "눈":
+            score -= 10
+            performance_details["구동 보정"] = "FWD → 눈에서 -10점"
+        elif terrain == "얼음":
+            score -= 50
+            performance_details["구동 보정"] = "FWD → 얼음에서 -50점"
+        else:
+            performance_details["구동 보정"] = "FWD → 일반 도로에서 성능 변화 없음"
+
+    randomness = random.uniform(0.1, 0.5)
+    score += randomness
+    performance_details["랜덤 요소"] = f"+{randomness:.2f}점"
+
+    return round(score, 2), performance_details
 
 def sell_car(car):
     rarity = car.get('rarity', 'Common')
@@ -120,15 +184,16 @@ with tab1:
         st.session_state.show_animation = False
         st.rerun()
 
-    if st.session_state.pack_opened and st.session_state.unlocked_cars:
-        st.subheader("🎉 다음 차량을 획득했습니다:")
-        for car in st.session_state.unlocked_cars:
-            show_card(car, car['name'])
-            if st.button(f"{car['name']} 차량 판매", key=f"sell_{car['name']}"):
-                sell_car(car)
-                st.success(f"{car['name']} 차량을 판매하고 {car_sell_prices.get(car.get('rarity', 'Common'), 100)} 코인을 얻었습니다!")
+if st.session_state.unlocked_cars:
+    st.subheader("🎉 카드팩에서 나온 차량들:")
+    for car in st.session_state.unlocked_cars:
+        show_card(car, car['name'])
+        car_id = str(car.get('car_id', car['name'])) 
+        if st.button(f"{car['name']} 차량 판매", key=f"sell_{car['name']}_{car_id}"):
+            sell_car(car)
+            st.success(f"{car['name']} 차량을 판매하고 {car_sell_prices.get(car.get('rarity', 'Common'), 100)} 코인을 얻었습니다!")
 
-        st.session_state.unlocked_cars = []
+    st.session_state.unlocked_cars = []
 
 
 with tab2:
@@ -138,7 +203,7 @@ with tab2:
     if not st.session_state.my_collection:
         st.info("아직 카드가 없습니다. 카드팩을 열어보세요!")
     else:
-        for idx, car in enumerate(st.session_state.my_collection[:]):  # 복사본으로 반복
+        for idx, car in enumerate(st.session_state.my_collection[:]):  
             show_card(car, f"{idx+1}. {car.get('name', 'Unknown')}")
             if st.button(f"{car.get('name', 'Unknown')} 차량 판매", key=f"sell_{idx}"):
                 rarity = car.get("rarity", "Common")
@@ -156,7 +221,7 @@ with tab3:
 
         opponent_car = random.choice([car for car in car_data['Hyundai'].values()])
 
-        terrain = random.choice(["아스팔트/맑음", "아스팔트/비", "비포장 도로/맑음", "비포장 도로/비", "자갈", "모래", "눈", "얼음", "슬릭"])
+        terrain = random.choice(["아스팔트/맑음", "아스팔트/비", "비포장 도로/맑음", "비포장 도로/비", "자갈", "모래", "눈", "얼음"])
         obstacle = random.choice(["없음", "낮은 지상고"])
 
         st.write(f"**경기 지형:** {terrain}")
@@ -182,6 +247,9 @@ with tab3:
 
         if score1 > score2:
             st.success("🎉 당신이 이겼습니다!")
+            reward = 100 
+            st.session_state.coins += reward
+            st.write(f"🎁 보상: {reward} 코인!")
         elif score1 < score2:
             st.error("💥 당신이 졌습니다!")
         else:
