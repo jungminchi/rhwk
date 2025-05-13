@@ -3,6 +3,14 @@ import random
 import time
 from car_data import car_data
 
+if "battle_log" not in st.session_state:
+    st.session_state.battle_log = []
+
+if selected_upgrade_car is not None:
+    rarity = selected_upgrade_car.get("rarity", "Common")
+else:
+    rarity = "Common"
+
 
 def show_card(car, title):
     st.subheader(title)
@@ -198,6 +206,29 @@ if st.session_state.unlocked_cars:
 
 with tab2:
     st.header("📁 내 컬렉션")
+    from collections import Counter
+    rarities = [car.get("rarity", "Common") for car in st.session_state.my_collection]
+    rarity_counts = Counter(rarities)
+    st.write("### 🚘 차량 등급 분포")
+    for rarity in ["Legendary", "Epic", "Rare", "Common"]:
+        st.write(f"- {rarity}: {rarity_counts.get(rarity, 0)}대")
+
+    with st.expander("🚗 차량 강화하기"):
+            selected_upgrade_car = st.selectbox("강화할 차량 선택", st.session_state.my_collection, format_func=lambda x: x['name'], key="upgrade_select")
+            rarity = selected_upgrade_car.get("rarity", "Common")
+            upgrade_cost = car_upgrade_costs.get(rarity, 300)
+
+            if st.button(f"🔧 {upgrade_cost} 코인으로 차량 성능 향상", key="upgrade_button"):
+                if st.session_state.coins >= upgrade_cost:
+                    st.session_state.coins -= upgrade_cost
+                    selected_upgrade_car["Top Speed"] = round(selected_upgrade_car.get("Top Speed", 0) * 1.05, 1)
+                    selected_upgrade_car["Acceleration"] = round(selected_upgrade_car.get("Acceleration", 0) * 0.95, 2)
+                    selected_upgrade_car["Handling"] = int(selected_upgrade_car.get("Handling", 0) + 5)
+                    st.success(f"{selected_upgrade_car['name']} 차량이 강화되었습니다!")
+                    st.rerun()
+                else:
+                    st.warning("코인이 부족합니다.")
+
     st.write(f"💰 현재 보유한 코인: {st.session_state.coins} 코인")
     
     if not st.session_state.my_collection:
@@ -220,7 +251,8 @@ with tab3:
         selected_car = st.selectbox("내 차량 선택", st.session_state.my_collection, format_func=lambda x: x['name'])
 
         opponent_car = random.choice([car for car in car_data['Hyundai'].values()])
-
+        all_opponents = [car for brand in car_data.values() for car in brand.values()]
+        opponent_car = random.choice(all_opponents)
         terrain = random.choice(["아스팔트/맑음", "아스팔트/비", "비포장 도로/맑음", "비포장 도로/비", "자갈", "모래", "눈", "얼음"])
         obstacle = random.choice(["없음", "낮은 지상고"])
 
@@ -254,3 +286,49 @@ with tab3:
             st.error("💥 당신이 졌습니다!")
         else:
             st.warning("무승부입니다.")
+        result = "승리" if score1 > score2 else "패배" if score1 < score2 else "무승부"
+        st.session_state.battle_log.insert(0, {
+            "내 차량": selected_car['name'],
+            "상대 차량": opponent_car['name'],
+            "지형": terrain,
+            "장애물": obstacle,
+            "결과": result
+        })
+        st.session_state.battle_log = st.session_state.battle_log[:10] 
+        st.write("## 📜 최근 전투 기록")
+        for log in st.session_state.battle_log:
+            st.write(f"🚗 {log['내 차량']} vs {log['상대 차량']} | 🏞 {log['지형']} + 장애물: {log['장애물']} → 결과: **{log['결과']}**")
+tab4 = st.tab("🔧 차량 업그레이드")
+
+with tab4:
+    st.header("🔧 차량 업그레이드")
+    st.write(f"💰 현재 코인: {st.session_state.coins} 코인")
+
+    if not st.session_state.my_collection:
+        st.info("업그레이드할 차량이 없습니다. 카드팩을 먼저 열어보세요.")
+    else:
+        selected_upgrade_car = st.selectbox(
+            "업그레이드할 차량 선택", 
+            st.session_state.my_collection, 
+            format_func=lambda x: x["name"]
+        )
+
+        rarity = selected_upgrade_car.get("rarity", "Common")
+        upgrade_cost = car_upgrade_costs.get(rarity, 300)
+
+        st.write(f"등급: {rarity}")
+        st.write(f"업그레이드 비용: {upgrade_cost} 코인")
+
+        if st.button("🚗 차량 업그레이드"):
+            if st.session_state.coins >= upgrade_cost:
+                st.session_state.coins -= upgrade_cost
+
+                selected_upgrade_car["Top Speed"] += 5
+                selected_upgrade_car["Handling"] += 3
+                selected_upgrade_car["Acceleration"] = round(
+                    max(selected_upgrade_car["Acceleration"] - 0.2, 1.0), 2
+                )
+
+                st.success(f"{selected_upgrade_car['name']} 차량이 업그레이드되었습니다!")
+            else:
+                st.error("코인이 부족합니다.")
