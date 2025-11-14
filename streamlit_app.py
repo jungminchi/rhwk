@@ -6,12 +6,6 @@ from car_data import car_data
 if "battle_log" not in st.session_state:
     st.session_state.battle_log = []
 
-if selected_upgrade_car is not None:
-    rarity = selected_upgrade_car.get("rarity", "Common")
-else:
-    rarity = "Common"
-
-
 def show_card(car, title):
     st.subheader(title)
     st.write(f"**차량명:** {car['name']}")
